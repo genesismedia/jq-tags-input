@@ -12,14 +12,11 @@ function loadConfig(path) {
 }
 
 module.exports = function(grunt) {
-   grunt.loadTasks('grunt-tasks');
+   require('load-grunt-tasks')(grunt);
+
+   grunt.task.loadTasks('grunt-tasks');
 
    require('time-grunt')(grunt);
-   
-   // Only load tasks when they are needed
-   require('jit-grunt')(grunt, {
-      ngtemplates: 'grunt-angular-templates'
-   });
 
    var config = {
       pkg: grunt.file.readJSON('package.json'),
@@ -27,5 +24,7 @@ module.exports = function(grunt) {
    };
 
    grunt.util._.extend(config, loadConfig('./grunt-tasks/options/'));
+
+   grunt.registerTask('default', ['build']);
    grunt.initConfig(config);
 };

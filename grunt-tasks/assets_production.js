@@ -1,5 +1,5 @@
 module.exports = function(grunt) {
-   grunt.registerTask('assets:production',
+   grunt.registerTask('build',
    [
       'cssmin:plugin',
       'uglify:plugin'
