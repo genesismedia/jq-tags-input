@@ -1,4 +1,4 @@
-# jQuery Tags Input Plugin
+# jq Tags Input Plugin
 
 Do you use tags to organize content on your site?
 This plugin will turn your boring tag list into a
@@ -7,13 +7,7 @@ object with its own delete link. The plugin handles
 all the data - your form just sees a comma-delimited
 list of tags!
 
-[Get it from Github](https://github.com/xoxco/jQuery-Tags-Input)
-
-[View Demo](http://xoxco.com/projects/code/tagsinput/)
-
-[Test it yourself using this jsFiddle Demo](http://jsfiddle.net/7aDak/)
-
-Created by [XOXCO](http://xoxco.com)
+[Get it from Github](https://github.com/mfgea/jq-tags-input)
 
 
 ## Instructions
