@@ -1,6 +1,6 @@
 /* global jQuery */
 /*
-    jqTagsInput Plugin 1.4.1
+    jqTagsInput Plugin 1.4.x
 
     Forked from: http://xoxco.com/clickable/jquery-tags-input
 
@@ -8,9 +8,6 @@
     http://www.opensource.org/licenses/mit-license.php
 */
 (function ($) {
-	var delimiter = [];
-	var tags_callbacks = [];
-
 	$.fn.doAutosize = function (o) {
 		var $input = $(this);
 		var minWidth = $input.data("minwidth");
@@ -72,15 +69,18 @@
 			var $this = $(this);
 			var id = $this.attr("id");
 
-			var tagslist = _splitMulti($this.val(), delimiter[id]);
+			var delimiters = getDelimiters($this);
+			var callbacks = getCallbacks($this);
+
+			var tagslist = _splitMulti($this.val(), delimiters);
 
 			value = $.trim(value);
 
 			var skipTag = false;
 			if (options.unique) {
 				skipTag = $this.tagExist(value);
-				if(!skipTag && tags_callbacks[id] && tags_callbacks[id].tagValidator) {
-					skipTag = value !== "" && !tags_callbacks[id].tagValidator(value);
+				if(!skipTag && callbacks.tagValidator) {
+					skipTag = value !== "" && !callbacks.tagValidator(value);
 				}
 				if (skipTag == true) {
 					//Marks fake input as not_valid to let styling it
@@ -111,13 +111,13 @@
 
 				$.fn.tagsInput.updateTagsField(this, tagslist);
 
-				if (options.callback && tags_callbacks[id]) {
-					if (tags_callbacks[id].onAddTag) {
-						tags_callbacks[id].onAddTag.call(this, value);
+				if (options.callback) {
+					if (callbacks.onAddTag) {
+						callbacks.onAddTag.call(this, value);
 					}
-					if (tags_callbacks[id].onChange) {
+					if (callbacks.onChange) {
 						var i = tagslist.length;
-						tags_callbacks[id].onChange.call(this, $(this), tagslist[i - 1]);
+						callbacks.onChange.call(this, $(this), tagslist[i - 1]);
 					}
 				}
 			}
@@ -132,7 +132,10 @@
 			var $this = $(this);
 			var id = $this.attr("id");
 
-			var old = _splitMulti($this.val(), delimiter[id]);
+			var delimiters = getDelimiters($this);
+			var callbacks = getCallbacks($this);
+
+			var old = _splitMulti($this.val(), delimiters);
 
 			$("#" + id + "_tagsinput .tag").remove();
 			var str = "";
@@ -144,8 +147,8 @@
 
 			$.fn.tagsInput.importTags(this, str);
 
-			if (tags_callbacks[id] && tags_callbacks[id].onRemoveTag) {
-				tags_callbacks[id].onRemoveTag.call(this, value);
+			if (callbacks.onRemoveTag) {
+				callbacks.onRemoveTag.call(this, value);
 			}
 		});
 
@@ -154,8 +157,9 @@
 
 	$.fn.tagExist = function (val) {
 		var $this = $(this);
-		var id = $this.attr("id");
-		var tagslist = _splitMulti($this.val(), delimiter[id]);
+		var delimiters = getDelimiters($this);
+
+		var tagslist = _splitMulti($this.val(), delimiters);
 		return ($.inArray(val, tagslist) >= 0); //true when tag exists, false when not
 	};
 
@@ -203,7 +207,7 @@
 				$this.hide();
 			}
 			var id = $this.attr("id");
-			if (!id || delimiter[id]) {
+			if (!id) {
 				id = "tags" + new Date().getTime() + (uniqueIdCounter++);
 				$this.attr("id", id);
 			}
@@ -216,16 +220,20 @@
 				fake_input: "#" + id + "_tag"
 			}, settings);
 
-			delimiter[id] = data.delimiter;
+			var savedSettings = {
+				delimiters: data.delimiter || [","]
+			};
 
 			if (settings.onAddTag || settings.onRemoveTag || settings.onChange || settings.tagValidator) {
-				tags_callbacks[id] = {
+				savedSettings.callbacks = {
 					onAddTag: settings.onAddTag,
 					onRemoveTag: settings.onRemoveTag,
 					onChange: settings.onChange,
 					tagValidator: settings.tagValidator
 				};
 			}
+
+			$this.data("tagsInputSettings", savedSettings);
 
 			var markup = "<div id=\"" + id + "_tagsinput\" class=\"tagsinput\"><div id=\"" + id + "_addTag\">";
 
@@ -298,7 +306,6 @@
 						}
 						return false;
 					});
-
 				}
 
 				// if user types a default delimiter like comma,semicolon and then create a new tag
@@ -320,9 +327,8 @@
 						var $this = $(this);
 						if (event.keyCode == 8 && $this.val() == "") {
 							event.preventDefault();
-							var last_tag = $this.closest(".tagsinput").find(".tag:last").text();
+							var last_tag = $this.closest(".tagsinput").find(".tag:last span").text();
 							var id = $this.attr("id").replace(/_tag$/, "");
-							last_tag = last_tag.replace(/[\s]+x$/, "");
 							$("#" + id).removeTag(escape(last_tag));
 							$this.trigger("focus");
 						}
@@ -346,21 +352,39 @@
 	};
 
 	$.fn.tagsInput.updateTagsField = function (obj, tagslist) {
-		var id = $(obj).attr("id");
-		$(obj).val(tagslist.join(getDefaultDelimiter(id)));
+		$(obj).val(tagslist.join(getDefaultDelimiter(obj)));
 	};
 
 	$.fn.tagsInput.importTags = function (obj, val) {
 		$(obj).val("");
-		var id = $(obj).attr("id");
-		var tags = _splitMulti(val, delimiter[id]);
+		var callbacks = getCallbacks(obj);
+
+		var tags = _splitMulti(val, getDelimiters(obj));
 		for (var i = 0; i < tags.length; i++) {
 			$(obj).addTag(tags[i], { focus: false, callback: false });
 		}
-		if (tags_callbacks[id] && tags_callbacks[id].onChange) {
-			tags_callbacks[id].onChange.call(obj, obj, tags[i]);
+		if (callbacks.onChange) {
+			callbacks.onChange.call(obj, obj, tags[i]);
 		}
 	};
+
+	/**
+	 * get saved delimiters
+	 * @param {DOM element}
+	 * @returns {object} Settings
+	 */
+	function getDelimiters(el) {
+		return ($(el).data("tagsInputSettings") || {}).delimiters;
+	}
+
+	/**
+	 * get saved callbacks
+	 * @param {DOM element}
+	 * @returns {object} Settings
+	 */
+	function getCallbacks(el) {
+		return ($(el).data("tagsInputSettings") || {}).callbacks;
+	}
 
 	/**
 	  * check delimiter Array
@@ -389,8 +413,8 @@
 		return found;
 	};
 
-	function getDefaultDelimiter(id) {
-		var delimiters = delimiter[id];
+	function getDefaultDelimiter(obj) {
+		var delimiters = getDelimiters(obj);
 		if(typeof delimiter === "string") {
 			return delimiters;
 		}
@@ -420,10 +444,10 @@
 		var delimiter = delimiters;
 		if(typeof delimiters !== "string") {
 			// replace all delimiters to an only one (the first in the array)
-			delimiter = delimiters.shift();
+			delimiter = delimiters[0];
 
 			// We might not need to replace, if we only have one delimiter in an array
-			if(delimiters.length) {
+			if(delimiters.length > 1) {
 				var re = new RegExp(delimiters.join("|"), "gi");
 				src = src.replace(re, delimiter);
 			}
