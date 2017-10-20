@@ -402,17 +402,20 @@
 
 	/**
 	 * Splits a string using multiple delimiters
-	 * @param {*} str
+	 * @param {*} src
 	 * @param {*} delimiters
 	 * @returns Array
 	 * @private
 	 */
-	function _splitMulti(str, delimiters) {
-		if(!str || typeof str !== "string") {
+	function _splitMulti(src, delimiters) {
+		if($.isArray(src)) {
+			return src;
+		}
+		if(!src || typeof src !== "string") {
 			return [];
 		}
 		if(!delimiters || delimiters.length === 0) {
-			return [str];
+			return [src];
 		}
 		var delimiter = delimiters;
 		if(typeof delimiters !== "string") {
@@ -422,11 +425,11 @@
 			// We might not need to replace, if we only have one delimiter in an array
 			if(delimiters.length) {
 				var re = new RegExp(delimiters.join("|"), "gi");
-				str = str.replace(re, delimiter);
+				src = src.replace(re, delimiter);
 			}
 		}
 
-		return str.split(delimiter);
+		return src.split(delimiter);
 	}
 
 })(jQuery);
