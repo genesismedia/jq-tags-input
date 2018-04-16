@@ -71,6 +71,7 @@
 
 			var delimiters = getDelimiters($this);
 			var callbacks = getCallbacks($this);
+			var staticReadOnlyValues = getStaticReadOnlyValues($this);
 
 			var tagslist = _splitMulti($this.val(), delimiters);
 
@@ -89,16 +90,23 @@
 			}
 
 			if (value != "" && skipTag != true) {
-				$("<span>").addClass("tag").append(
-					$("<span>").text(value),
-					$("<a>", {
-						href: "#",
-						title: "Removing tag",
-						text: "x"
-					}).click(function () {
-						return $("#" + id).removeTag(escape(value));
-					})
-				).insertBefore("#" + id + "_addTag");
+				var isStaticReadOnlyValue = staticReadOnlyValues.indexOf(value) !== -1;
+				if (isStaticReadOnlyValue) {
+					$("<span>").addClass("tag tag-static-read-only").append(
+						$("<span>").text(value)
+					).insertBefore("#" + id + "_addTag");
+				} else {
+					$("<span>").addClass("tag").append(
+						$("<span>").text(value),
+						$("<a>", {
+							href: "#",
+							title: "Removing tag",
+							text: "x"
+						}).click(function () {
+							return $("#" + id).removeTag(escape(value));
+						})
+					).insertBefore("#" + id + "_addTag");
+				}
 
 				tagslist.push(value);
 
@@ -184,6 +192,7 @@
 			hide: true,
 			delimiter: ",",
 			unique: true,
+			staticReadOnlyValues: [],
 			removeWithBackspace: true,
 			placeholderColor: "#666666",
 			autosize: true,
@@ -221,7 +230,8 @@
 			}, settings);
 
 			var savedSettings = {
-				delimiters: data.delimiter || [","]
+				delimiters: data.delimiter || [","],
+				staticReadOnlyValues: data.staticReadOnlyValues
 			};
 
 			if (settings.onAddTag || settings.onRemoveTag || settings.onChange || settings.tagValidator) {
@@ -328,9 +338,12 @@
 						if (event.keyCode == 8 && $this.val() == "") {
 							event.preventDefault();
 							var last_tag = $this.closest(".tagsinput").find(".tag:last span").text();
-							var id = $this.attr("id").replace(/_tag$/, "");
-							$("#" + id).removeTag(escape(last_tag));
-							$this.trigger("focus");
+							// Do not delete any tags that have been marked as staticReadOnly
+							if (data.staticReadOnlyValues.indexOf(last_tag) === -1) {
+								var id = $this.attr("id").replace(/_tag$/, "");
+								$("#" + id).removeTag(escape(last_tag));
+								$this.trigger("focus");
+							}
 						}
 					});
 				}
@@ -360,11 +373,28 @@
 		var callbacks = getCallbacks(obj);
 
 		var tags = _splitMulti(val, getDelimiters(obj));
-		for (var i = 0; i < tags.length; i++) {
-			$(obj).addTag(tags[i], { focus: false, callback: false });
+		var staticReadOnlyValues = getStaticReadOnlyValues(obj);
+		// If there are any staticReadOnlyValues, move them to the beginning of the values array in alphabetical order
+		if (staticReadOnlyValues.length > 0) {
+			var importedStaticReadOnlyValues = {};
+			var importedStandardValues = {};
+
+			for (var i = 0; i < tags.length; i++) {
+				var tag = tags[i];
+				if (staticReadOnlyValues.indexOf(tag) !== -1) {
+					importedStaticReadOnlyValues[tag] = tag;
+				} else {
+					importedStandardValues[tag] = tag;
+				}
+			}
+			tags = Object.keys(importedStaticReadOnlyValues).concat(Object.keys(importedStandardValues));
+		}
+
+		for (var j = 0; j < tags.length; j++) {
+			$(obj).addTag(tags[j], { focus: false, callback: false });
 		}
 		if (callbacks.onChange) {
-			callbacks.onChange.call(obj, obj, tags[i]);
+			callbacks.onChange.call(obj, obj, tags[j]);
 		}
 	};
 
@@ -384,6 +414,10 @@
 	 */
 	function getCallbacks(el) {
 		return ($(el).data("tagsInputSettings") || {}).callbacks;
+	}
+
+	function getStaticReadOnlyValues(el) {
+		return ($(el).data("tagsInputSettings") || {}).staticReadOnlyValues;
 	}
 
 	/**
